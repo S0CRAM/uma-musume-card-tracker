@@ -13418,7 +13418,8 @@
                 ]
               ]
             }
-          ]
+          ],
+          "title_en": "An Optimistic Outlook!"
         },
         {
           "title_jp": "私だけの強み！！",
@@ -13456,7 +13457,8 @@
                 ]
               ]
             }
-          ]
+          ],
+          "title_en": "A Strength That's All My Own!"
         }
       ]
     },
@@ -14482,7 +14484,8 @@
               ]
             ]
           }
-        ]
+        ],
+        "title_en": "A Professional's Feelings"
       },
       {
         "title_jp": "仕事人の心得",
@@ -14518,7 +14521,8 @@
               ]
             ]
           }
-        ]
+        ],
+        "title_en": "A Professional's Creed"
       }
     ],
     "event_skills": {
@@ -14591,7 +14595,8 @@
               ]
             ]
           }
-        ]
+        ],
+        "title_en": "The Euphoria of Destruction!"
       },
       {
         "title_jp": "鮮烈なる今を……！！",
@@ -14631,7 +14636,8 @@
               ]
             ]
           }
-        ]
+        ],
+        "title_en": "An Electrifying Present!"
       }
     ],
     "chain_events": {
@@ -14757,7 +14763,8 @@
               ]
             ]
           }
-        ]
+        ],
+        "title_en": "Magnificent Dismay?"
       },
       {
         "title_jp": "華麗なる旋律",
@@ -14793,7 +14800,8 @@
               ]
             ]
           }
-        ]
+        ],
+        "title_en": "Magnificent Melodia"
       }
     ],
     "event_skills": {
@@ -15773,7 +15781,8 @@
               ]
             ]
           }
-        ]
+        ],
+        "title_en": "Spreading Kindness"
       },
       {
         "title_jp": "ぬれてもへいき",
@@ -15809,7 +15818,8 @@
               ]
             ]
           }
-        ]
+        ],
+        "title_en": "Come Rain or River"
       }
     ],
     "chain_events": {
@@ -15846,7 +15856,8 @@
                 ]
               ]
             }
-          ]
+          ],
+          "title_en": "Across Still Waters"
         },
         {
           "title_jp": "薄氷の上にて",
@@ -15881,7 +15892,8 @@
                 ]
               ]
             }
-          ]
+          ],
+          "title_en": "On Thin Ice"
         }
       ]
     },

@@ -1454,6 +1454,35 @@
     ]
   },
   {
+    "id": 100291,
+    "name": "Snow Bright, Snow Flight",
+    "description": "With 300m or less remaining, increase velocity when leading or positioned toward the front close to the lead runner.",
+    "icon_id": 20013,
+    "rarity": 5,
+    "group_id": 10029,
+    "skill_category": 5,
+    "tag_id": "401",
+    "type": [
+      "corner"
+    ],
+    "cost": null,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "distance_diff_top<=5&remain_distance<=300&order_rate<=40",
+        "base_time": 50000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 3500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": 100301,
     "name": "Blue Rose Closer",
     "description": "When the skill user has passed another runner late-race and has reached the front part of the pack, draw on deep resolve to increase velocity on the final straight.",
@@ -2593,6 +2622,84 @@
     ]
   },
   {
+    "id": 100781,
+    "name": "Sunny Breeze",
+    "description": "Very slightly increase acceleration continuously for a long duration when toward the front on the latter half of the final corner after biding time in the race's first half. Effect increases if 2nd.",
+    "icon_id": 20043,
+    "rarity": 5,
+    "group_id": 10078,
+    "skill_category": 5,
+    "tag_id": "403",
+    "type": [
+      "final_corner"
+    ],
+    "cost": null,
+    "condition_groups": [
+      {
+        "precondition": "distance_rate>=50&order_rate_out20_continue==1",
+        "condition": "is_finalcorner_laterhalf==1&distance_diff_rate<=50&order==2",
+        "base_time": 80000,
+        "effects": [
+          {
+            "type": 31,
+            "value": 2000,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      },
+      {
+        "precondition": "distance_rate>=50&order_rate_out20_continue==1",
+        "condition": "is_finalcorner_laterhalf==1&distance_diff_rate<=50",
+        "base_time": 80000,
+        "effects": [
+          {
+            "type": 31,
+            "value": 1000,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 100871,
+    "name": "Silent Letter",
+    "description": "Increase ability to break out of the pack with a strong desire to linger in fans' hearts when pressured toward the front with 400m or less remaining.",
+    "icon_id": 20013,
+    "rarity": 5,
+    "group_id": 10087,
+    "skill_category": 5,
+    "tag_id": "401/403",
+    "type": [
+      "corner",
+      "final_corner"
+    ],
+    "cost": null,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "remain_distance<=400&order<=2&overtake_target_time>=1",
+        "base_time": 50000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 2500,
+            "target_type": 1,
+            "target_value": 0
+          },
+          {
+            "type": 31,
+            "value": 3000,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": 100981,
     "name": "Luck Runs My Way",
     "description": "Moderately increase velocity sometime upon approaching late-race, then increase velocity and acceleration based on how many passive skills the skill user has in effect.",
@@ -3107,6 +3214,35 @@
     ]
   },
   {
+    "id": 110191,
+    "name": "THE MOE AAAA Thanks for My Life",
+    "description": "Simp hard and increase velocity when positioned midpack or further back on a mid-race corner and there are at least 3 beautiful radiant Umamusume nearby.",
+    "icon_id": 20013,
+    "rarity": 5,
+    "group_id": 11019,
+    "skill_category": 5,
+    "tag_id": "401",
+    "type": [
+      "corner"
+    ],
+    "cost": null,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "near_count>=3&phase==1&corner!=0&order_rate>=40",
+        "base_time": 50000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 3500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": 110201,
     "name": "Break It Down!",
     "description": "High spirits increase velocity when positioned toward the front on a late-race straight. If it's the backstretch, also slightly increase acceleration.",
@@ -3148,6 +3284,41 @@
           {
             "type": 27,
             "value": 3500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 110211,
+    "name": "Lightning Flare",
+    "description": "Moderately increase velocity continuously when the skill user activates 2 skills mid-race. Increase this skill's effectiveness if the user activates another skill while it's active (up to 2 times).",
+    "icon_id": 20013,
+    "rarity": 5,
+    "group_id": 11021,
+    "skill_category": 5,
+    "tag_id": "401",
+    "type": [
+      "corner"
+    ],
+    "cost": null,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "activate_count_middle>=2",
+        "base_time": 60000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 2500,
+            "target_type": 1,
+            "target_value": 0
+          },
+          {
+            "type": 27,
+            "value": 250,
             "target_type": 1,
             "target_value": 0
           }
@@ -3348,6 +3519,35 @@
           {
             "type": 27,
             "value": 2500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 110341,
+    "name": "Firelight",
+    "description": "Increase velocity on the final straight after pressuring a runner toward the back on a corner late-race. Effect increases for each time the user passed a runner on a corner late-race.",
+    "icon_id": 20013,
+    "rarity": 5,
+    "group_id": 11034,
+    "skill_category": 5,
+    "tag_id": "401",
+    "type": [
+      "corner"
+    ],
+    "cost": null,
+    "condition_groups": [
+      {
+        "precondition": "phase>=2&corner!=0&order_rate>=60&is_overtake==1",
+        "condition": "is_last_straight_onetime==1",
+        "base_time": 50000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 3500,
             "target_type": 1,
             "target_value": 0
           }
@@ -3658,6 +3858,48 @@
             "value": 3500,
             "target_type": 1,
             "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 110581,
+    "name": "Spooky, Scary, Happy",
+    "description": "Increase velocity and very slightly intimidate up to 2 runners ahead and up to 2 runners behind when positioned toward the front upon entering the final straight.",
+    "icon_id": 20013,
+    "rarity": 5,
+    "group_id": 11058,
+    "skill_category": 5,
+    "tag_id": "401/406",
+    "type": [
+      "corner",
+      "turf"
+    ],
+    "cost": null,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "is_last_straight_onetime==1&order_rate<=40",
+        "base_time": 50000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 3500,
+            "target_type": 1,
+            "target_value": 0
+          },
+          {
+            "type": 21,
+            "value": -500,
+            "target_type": 9,
+            "target_value": 2
+          },
+          {
+            "type": 21,
+            "value": -500,
+            "target_type": 10,
+            "target_value": 2
           }
         ]
       }
@@ -19829,7 +20071,7 @@
   },
   {
     "id": 202401,
-    "name": "Flash Forward",
+    "name": "Lightning Surge",
     "description": "Increase acceleration when trying to pass another runner from the back late-race. (Sprint/Mile)",
     "icon_id": 20042,
     "rarity": 2,
@@ -22761,6 +23003,35 @@
     ]
   },
   {
+    "id": 900291,
+    "name": "Snow Bright, Snow Flight",
+    "description": "Slightly increase velocity when leading or positioned toward the front close to the lead runner with 300m or less remaining.",
+    "icon_id": 20011,
+    "rarity": 1,
+    "group_id": 90029,
+    "skill_category": 5,
+    "tag_id": "401",
+    "type": [
+      "corner"
+    ],
+    "cost": 200,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "distance_diff_top<=5&remain_distance<=300&order_rate<=40",
+        "base_time": 30000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 1500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": 900301,
     "name": "Blue Rose Closer",
     "description": "Slightly increase velocity on the final straight when the skill user has passed another runner late-race and has reached the front part of the pack.",
@@ -23156,6 +23427,48 @@
       {
         "precondition": "",
         "condition": "distance_rate>=50&order<=3&blocked_side_continuetime>=2",
+        "base_time": 30000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 1500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 900421,
+    "name": "I'm Possible!",
+    "description": "Slightly increase velocity when positioned 2nd or later within 4 lengths of the lead with 200m remaining. If within 2 lengths, increase velocity moderately instead.",
+    "icon_id": 20011,
+    "rarity": 1,
+    "group_id": 90042,
+    "skill_category": 5,
+    "tag_id": "401",
+    "type": [
+      "corner"
+    ],
+    "cost": 200,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "remain_distance<=201&remain_distance>=199&distance_diff_top<=5&order>=2",
+        "base_time": 30000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 2500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      },
+      {
+        "precondition": "",
+        "condition": "remain_distance<=201&remain_distance>=199&distance_diff_top<=10&order>=2",
         "base_time": 30000,
         "effects": [
           {
@@ -23858,6 +24171,84 @@
     ]
   },
   {
+    "id": 900781,
+    "name": "Sunny Breeze",
+    "description": "Very minimally increase acceleration continuously for a long duration when toward the front on the latter half of the final corner after biding time in the race's first half. Effect increases if 2nd.",
+    "icon_id": 20041,
+    "rarity": 1,
+    "group_id": 90078,
+    "skill_category": 5,
+    "tag_id": "403",
+    "type": [
+      "final_corner"
+    ],
+    "cost": 200,
+    "condition_groups": [
+      {
+        "precondition": "distance_rate>=50&order_rate_out20_continue==1",
+        "condition": "is_finalcorner_laterhalf==1&distance_diff_rate<=50&order==2",
+        "base_time": 48000,
+        "effects": [
+          {
+            "type": 31,
+            "value": 700,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      },
+      {
+        "precondition": "distance_rate>=50&order_rate_out20_continue==1",
+        "condition": "is_finalcorner_laterhalf==1&distance_diff_rate<=50",
+        "base_time": 48000,
+        "effects": [
+          {
+            "type": 31,
+            "value": 500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 900871,
+    "name": "Silent Letter",
+    "description": "Very slightly increase ability to break out of the pack when pressured toward the front with 400m or less remaining.",
+    "icon_id": 20011,
+    "rarity": 1,
+    "group_id": 90087,
+    "skill_category": 5,
+    "tag_id": "401/403",
+    "type": [
+      "corner",
+      "final_corner"
+    ],
+    "cost": 200,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "remain_distance<=400&order<=2&overtake_target_time>=1",
+        "base_time": 30000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 500,
+            "target_type": 1,
+            "target_value": 0
+          },
+          {
+            "type": 31,
+            "value": 1000,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": 900981,
     "name": "Luck Runs My Way",
     "description": "Very slightly increase velocity sometime upon approaching late-race.",
@@ -24317,6 +24708,35 @@
     ]
   },
   {
+    "id": 910191,
+    "name": "THE MOE AAAA Thanks for My Life",
+    "description": "Slightly increase velocity when positioned midpack or further back on a mid-race corner and there are at least 3 runners nearby.",
+    "icon_id": 20011,
+    "rarity": 1,
+    "group_id": 91019,
+    "skill_category": 5,
+    "tag_id": "401",
+    "type": [
+      "corner"
+    ],
+    "cost": 200,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "near_count>=3&phase==1&corner!=0&order_rate>=40",
+        "base_time": 30000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 1500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": 910201,
     "name": "Break It Down!",
     "description": "Slightly increase velocity when positioned toward the front on a late-race straight. If it's the backstretch, also minimally increase acceleration.",
@@ -24358,6 +24778,41 @@
           {
             "type": 27,
             "value": 1500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 910211,
+    "name": "Lightning Flare",
+    "description": "Very slightly increase velocity continuously when the skill user activates 2 skills mid-race. Increase this skill's effectiveness if the user activates another skill while it's active (up to 2 times).",
+    "icon_id": 20011,
+    "rarity": 1,
+    "group_id": 91021,
+    "skill_category": 5,
+    "tag_id": "401",
+    "type": [
+      "corner"
+    ],
+    "cost": 200,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "activate_count_middle>=2",
+        "base_time": 36000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 500,
+            "target_type": 1,
+            "target_value": 0
+          },
+          {
+            "type": 27,
+            "value": 250,
             "target_type": 1,
             "target_value": 0
           }
@@ -24558,6 +25013,35 @@
           {
             "type": 27,
             "value": 500,
+            "target_type": 1,
+            "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 910341,
+    "name": "Firelight",
+    "description": "Slightly increase velocity on the final straight after pressuring a runner toward the back on a corner late-race. Effect increases for each time the user passed a runner on a corner late-race.",
+    "icon_id": 20011,
+    "rarity": 1,
+    "group_id": 91034,
+    "skill_category": 5,
+    "tag_id": "401",
+    "type": [
+      "corner"
+    ],
+    "cost": 200,
+    "condition_groups": [
+      {
+        "precondition": "phase>=2&corner!=0&order_rate>=60&is_overtake==1",
+        "condition": "is_last_straight_onetime==1",
+        "base_time": 30000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 1500,
             "target_type": 1,
             "target_value": 0
           }
@@ -24868,6 +25352,48 @@
             "value": 1500,
             "target_type": 1,
             "target_value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 910581,
+    "name": "Spooky, Scary, Happy",
+    "description": "Slightly increase velocity and very minimally intimidate up to 2 runners ahead and up to 2 runners behind when positioned toward the front upon entering the final straight.",
+    "icon_id": 20011,
+    "rarity": 1,
+    "group_id": 91058,
+    "skill_category": 5,
+    "tag_id": "401/406",
+    "type": [
+      "corner",
+      "turf"
+    ],
+    "cost": 200,
+    "condition_groups": [
+      {
+        "precondition": "",
+        "condition": "is_last_straight_onetime==1&order_rate<=40",
+        "base_time": 30000,
+        "effects": [
+          {
+            "type": 27,
+            "value": 1500,
+            "target_type": 1,
+            "target_value": 0
+          },
+          {
+            "type": 21,
+            "value": -250,
+            "target_type": 9,
+            "target_value": 2
+          },
+          {
+            "type": 21,
+            "value": -250,
+            "target_type": 10,
+            "target_value": 2
           }
         ]
       }
