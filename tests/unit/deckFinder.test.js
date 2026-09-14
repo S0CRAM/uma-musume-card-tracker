@@ -133,6 +133,25 @@ describe('precomputeCardEffects', () => {
         }
     });
 
+    test('conditional (100-family) UEs are excluded from precomputed effects', () => {
+        // Taiki Shuttle 101 (gauge 80), Digital 103 (threshold 5), Oguri Cap 115
+        const pool = [getCardById(30053), getCardById(30085), getCardById(30146)];
+        const cache = precomputeCardEffects(pool, null, true);
+        for (const [cardId, entry] of cache) {
+            const card = pool.find(c => c.support_id === cardId);
+            expect(card.unique_effect).toBeDefined();
+            for (const key of Object.keys(entry.effects)) {
+                expect(Number(key)).toBeLessThan(100);
+            }
+            for (const key of Object.keys(entry.uniqueEffectBonuses)) {
+                expect(Number(key)).toBeLessThan(100);
+            }
+            // Raw threshold values must not pollute the scoring sum either
+            const total = entry.effectValArr.reduce((sum, v) => sum + v, 0);
+            expect(total).toBe(Object.values(entry.effects).reduce((s, v) => s + v, 0));
+        }
+    });
+
     test('hint skills are populated', () => {
         const card = getCardById(30001);
         const pool = [card];

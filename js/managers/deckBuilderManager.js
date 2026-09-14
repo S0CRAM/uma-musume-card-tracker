@@ -362,6 +362,104 @@ function selectCardForSlot(slotIndex, cardId) {
     });
 }
 
+// ===== CONDITIONAL UNIQUE EFFECTS (100-family) =====
+//
+// The DB (support_card_unique_effect) stores conditional parameters in extra
+// columns (value_0_1..4) that used to be dropped by the extractor; they now
+// surface as ue.value_1..value_4. Parameter semantics, verified against a
+// master.mdb dump (2026-09-13) + the EN description text (text_data cat 155):
+//
+//   103  value = distinct deck card types required, value_1 = TE% bonus
+//        (Digital: 5 types -> +15% TE; Diamond: 4 types -> +10% TE)
+//   105  value = initial stat points per value_1 distinct deck types,
+//        applied to ALL initial stats (Rudolf / Helios: +10 per 2 types)
+//   111  value = TE% bonus, value_1 = required training level (Maruzensky:
+//        +8% TE at level 5+; facility levels are 1-5)
+//   113  value = energy cost reduction %, value_1 = likely friendship-gauge
+//        threshold (Light Hello: -28% energy on friendship training).
+//        The builder has no gauge state, so the reduction is applied
+//        whenever friendship training is on — PROVISIONAL approximation.
+//
+// The remaining 11 types (101, 102, 104, 106-110, 112, 114, 115) need
+// per-run state (gauge/energy/fans/failure) and are display-only for now.
+const CONDITIONAL_UE_CALCULATED = { 103: true, 105: true, 111: true, 113: true };
+
+// Distinct card types across the 5 deck slots (friend slot excluded —
+// in-game the deck is 5 cards; the friend card travels separately).
+function getDeckTypeSet(slots) {
+    const types = new Set();
+    for (let i = 0; i < 5; i++) {
+        const slot = slots[i];
+        if (!slot) continue;
+        const card = cardData.find(c => c.support_id === slot.cardId);
+        if (card) types.add(card.type);
+    }
+    return types;
+}
+
+// Active conditional (100-family) UE entries across the deck.
+// Only returns entries whose card level has unlocked the unique effect.
+function collectConditionalUes(slots) {
+    const entries = [];
+    slots.forEach(slot => {
+        if (!slot) return;
+        const card = cardData.find(c => c.support_id === slot.cardId);
+        if (!card || !card.unique_effect) return;
+        if (slot.level < card.unique_effect.level) return;
+        (card.unique_effect.effects || []).forEach(ue => {
+            if (ue.type >= 100) {
+                entries.push({
+                    type: ue.type,
+                    value: ue.value,
+                    value_1: ue.value_1 || 0,
+                    cardId: card.support_id
+                });
+            }
+        });
+    });
+    return entries;
+}
+
+// TE contributed by conditional UEs that the builder can evaluate:
+//   103 — deck has enough distinct card types
+//   111 — facility level is high enough
+function getConditionalTrainingEff(slots, trainingLevel) {
+    let bonus = 0;
+    const deckTypes = getDeckTypeSet(slots);
+    collectConditionalUes(slots).forEach(ue => {
+        if (ue.type === 103 && deckTypes.size >= ue.value) {
+            bonus += ue.value_1;
+        } else if (ue.type === 111 && trainingLevel >= ue.value_1) {
+            bonus += ue.value;
+        }
+    });
+    return bonus;
+}
+
+// Initial-stat bonus (all 5 stats) from UE type 105, based on how many
+// distinct card types the deck has.
+function getConditionalInitialStatBonus(slots) {
+    let bonus = 0;
+    const deckTypes = getDeckTypeSet(slots);
+    collectConditionalUes(slots).forEach(ue => {
+        if (ue.type === 105 && ue.value_1 > 0) {
+            bonus += Math.floor(deckTypes.size / ue.value_1) * ue.value;
+        }
+    });
+    return bonus;
+}
+
+// Energy cost reduction (%) from UE type 113, only while friendship
+// training is happening (gauge threshold in value_1 is not modeled).
+function getConditionalEnergyReduction(slots, friendshipTraining) {
+    if (!friendshipTraining) return 0;
+    let reduction = 0;
+    collectConditionalUes(slots).forEach(ue => {
+        if (ue.type === 113) reduction += ue.value;
+    });
+    return reduction;
+}
+
 // ===== EFFECT AGGREGATION =====
 
 function aggregateDeckEffects(slots) {
@@ -386,10 +484,12 @@ function aggregateDeckEffects(slots) {
             });
         }
 
-        // Include active unique effect bonuses (matches deck finder behavior)
+        // Include active unique effect bonuses (matches deck finder behavior).
+        // 100-family UEs are conditional and must NOT leak into the flat map
+        // (their value_0 is usually a threshold, e.g. gauge 80 / fans 10000).
         if (card.unique_effect && slot.level >= card.unique_effect.level && card.unique_effect.effects) {
             card.unique_effect.effects.forEach(ue => {
-                if (ue.type && ue.value > 0) {
+                if (ue.type && ue.type < 100 && ue.value > 0) {
                     aggregated[ue.type] = (aggregated[ue.type] || 0) + ue.value;
                 }
             });
@@ -485,6 +585,10 @@ function calculateTrainingGains(trainingType, slots, aggregated, options) {
         }
     });
 
+    // Conditional unique effects that add TE based on deck state (types 103, 111)
+    const conditionalTe = getConditionalTrainingEff(slots, trainingLevel);
+    if (conditionalTe > 0) trainingEff += conditionalTe;
+
     const moodBase = MOOD_VALUES[mood] || 0;
     const moodMultiplier = 1 + moodBase * (1 + moodEffect / 100);
     const trainingEffMultiplier = 1 + trainingEff / 100;
@@ -548,9 +652,10 @@ function calculateTrainingGains(trainingType, slots, aggregated, options) {
         }
     }
 
-    // Apply energy cost reduction (deck-wide effect ID 28)
+    // Apply energy cost reduction (deck-wide effect ID 28, plus conditional
+    // UE type 113 which only applies during friendship training)
     if (energy < 0) {
-        const energyReduction = aggregated[28] || 0;
+        const energyReduction = (aggregated[28] || 0) + getConditionalEnergyReduction(slots, friendshipTraining);
         if (energyReduction > 0) {
             result.energyReduced = Math.floor(energy * (1 - energyReduction / 100));
         }
@@ -567,6 +672,16 @@ function calculateAllTraining() {
         friendshipTraining: deckBuilderState.friendshipTraining,
         scenario: deckBuilderState.scenario
     };
+
+    // UE type 105: initial stats up based on distinct deck card types.
+    // Folded into the aggregated initial-stat effects (IDs 9-13) so the
+    // deck summary's Initial Stats row includes it.
+    const initialBonus = getConditionalInitialStatBonus(deckBuilderState.slots);
+    if (initialBonus > 0) {
+        [9, 10, 11, 12, 13].forEach(id => {
+            aggregated[id] = (aggregated[id] || 0) + initialBonus;
+        });
+    }
 
     const results = {};
     ['speed', 'stamina', 'power', 'guts', 'intelligence'].forEach(type => {
@@ -630,6 +745,10 @@ function computePerTrainingEffects(slots) {
                 });
             }
         });
+
+        // Conditional unique effects that add TE based on deck state (103, 111)
+        const conditionalTe = getConditionalTrainingEff(slots, deckBuilderState.trainingLevel);
+        if (conditionalTe > 0) trainingEff += conditionalTe;
 
         perTraining[trainingType] = {
             supportCount: presentSlots.length,
@@ -1350,7 +1469,13 @@ window.DeckBuilderManager = {
     getTrainingFailureRates,
     DECK_STORAGE_KEY,
     getRaceBonusTable,
-    toggleAllCardsMax
+    toggleAllCardsMax,
+    getDeckTypeSet,
+    collectConditionalUes,
+    getConditionalTrainingEff,
+    getConditionalInitialStatBonus,
+    getConditionalEnergyReduction,
+    CONDITIONAL_UE_CALCULATED
 };
 
 Object.assign(window, {

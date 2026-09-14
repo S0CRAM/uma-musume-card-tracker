@@ -1966,6 +1966,26 @@
     color: var(--text-primary);
 }
 
+/* Status tag on conditional (100-family) UE details: whether the value is
+   included in the builder's calculations or display-only */
+.ue-calc-tag {
+    font-size: 0.75em;
+    font-weight: 600;
+    padding: 0 5px;
+    margin-left: 5px;
+    border-radius: var(--radius-sm);
+}
+
+.ue-calc-tag.calculated {
+    background: var(--color-success);
+    color: #fff;
+}
+
+.ue-calc-tag.not-calculated {
+    background: var(--color-warning);
+    color: #fff;
+}
+
 /* ===== DECK SKILLS ===== */
 
 .ds-skill-groups {

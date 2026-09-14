@@ -639,14 +639,18 @@ function precomputeCardEffects(pool, traineeData, forceMaxLevel, maxPotential, b
             });
         }
 
-        // Unique effect — add its bonuses to the effects map when active
+        // Unique effect — add its bonuses to the effects map when active.
+        // 100-family (conditional) UEs are excluded: their value_0 is a
+        // threshold/parameter (gauge 80, fans 10000, ...) not a bonus, and
+        // summing it into totalEffectSum would distort scoring. Conditional
+        // UE contributions are not modeled in finder scoring (display only).
         const uniqueEffectActive = card.unique_effect ? level >= card.unique_effect.level : false;
         const uniqueEffectBonuses = {}; // effectId -> value from unique effect
         if (uniqueEffectActive && card.unique_effect.effects) {
             card.unique_effect.effects.forEach(ue => {
                 const ueId = ue.type;
                 const ueVal = ue.value;
-                if (ueId && ueVal > 0) {
+                if (ueId && ueId < 100 && ueVal > 0) {
                     effects[ueId] = (effects[ueId] || 0) + ueVal;
                     uniqueEffectBonuses[ueId] = (uniqueEffectBonuses[ueId] || 0) + ueVal;
                 }

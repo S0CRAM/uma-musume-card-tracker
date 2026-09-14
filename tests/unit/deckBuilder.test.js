@@ -168,6 +168,174 @@ describe('calculateTrainingGains', () => {
     });
 });
 
+// ===== Conditional unique effects (100-family) =====
+//
+// Regression coverage for the Tier A conditional UEs calculated from deck
+// state (types 103, 105, 111, 113). Fixture cards:
+//   30085 Agnes Digital   (power)        103: 5+ distinct types -> +15% TE
+//   30088 Satono Diamond  (intelligence) 103: 4+ distinct types -> +10% TE
+//   30090 Symboli Rudolf  (stamina)      105: +10 initial stats per 2 types
+//   30107 Maruzensky      (speed)        111: level 5+ training -> +8% TE
+//   30052 Light Hello     (friend)       113: friendship training -> -28% energy
+
+describe('conditional unique effects (Tier A)', () => {
+    function buildSlots(cardIds, level = 50) {
+        const slots = cardIds.map(id => ({ cardId: id, level, limitBreak: 4 }));
+        while (slots.length < 6) slots.push(null);
+        return slots;
+    }
+
+    function setupSlotsWithAssignments(slots, assigned = true) {
+        deckBuilderState.slots = slots;
+        const len = slots.length;
+        deckBuilderState.trainingAssignments = {
+            speed: new Array(len).fill(assigned),
+            stamina: new Array(len).fill(assigned),
+            power: new Array(len).fill(assigned),
+            guts: new Array(len).fill(assigned),
+            intelligence: new Array(len).fill(assigned),
+        };
+        deckBuilderState.scenario = '1';
+        deckBuilderState.trainingLevel = 1;
+        deckBuilderState.mood = 'normal';
+        deckBuilderState.friendshipTraining = false;
+    }
+
+    // ---- Type 103: TE bonus when deck has N+ distinct card types ----
+
+    test('103 Digital: +15% TE at 5 distinct types, none at 4', () => {
+        // 5 distinct: speed, stamina, power (Digital), guts, intelligence
+        const slots5 = buildSlots([30002, 30004, 30085, 30001, 30010]);
+        expect(getConditionalTrainingEff(slots5, 1)).toBe(15);
+
+        // 4 distinct: duplicate speed, drop stamina
+        const slots4 = buildSlots([30002, 30003, 30085, 30001, 30010]);
+        expect(getConditionalTrainingEff(slots4, 1)).toBe(0);
+    });
+
+    test('103 Digital: bonus flows into per-training TE', () => {
+        // 5-type deck (Suzuka's stamina slot) vs the same deck with a second
+        // speed card (Teio) — neither speed card nor Seiun Sky carries TE, so
+        // the TE delta must be exactly Digital's +15.
+        setupSlotsWithAssignments(buildSlots([30002, 30008, 30085, 30001, 30010]));
+        const eff5 = computePerTrainingEffects(deckBuilderState.slots).speed.trainingEff;
+
+        setupSlotsWithAssignments(buildSlots([30002, 30003, 30085, 30001, 30010]));
+        const eff4 = computePerTrainingEffects(deckBuilderState.slots).speed.trainingEff;
+
+        expect(eff5 - eff4).toBe(15);
+    });
+
+    test('103 Diamond: +10% TE at 4 distinct types, none at 3', () => {
+        // 4 distinct: speed, stamina, power, intelligence (Diamond)
+        const slots4 = buildSlots([30002, 30004, 30005, 30088]);
+        expect(getConditionalTrainingEff(slots4, 1)).toBe(10);
+
+        // 3 distinct: duplicate speed
+        const slots3 = buildSlots([30002, 30003, 30004, 30088]);
+        expect(getConditionalTrainingEff(slots3, 1)).toBe(0);
+    });
+
+    test('103: unique effect below unlock level contributes nothing', () => {
+        // Digital's UE unlocks at level 30; at level 20 it is inactive
+        const slots = buildSlots([30002, 30004, 30085, 30001, 30010], 20);
+        expect(getConditionalTrainingEff(slots, 1)).toBe(0);
+    });
+
+    // ---- Type 105: initial stat bonus per distinct card types ----
+
+    test('105 Rudolf: +10 initial stats per 2 distinct types (all 5 stats)', () => {
+        // 5 distinct types -> floor(5/2)*10 = 20
+        const slots5 = buildSlots([30090, 30002, 30005, 30001, 30010]);
+        expect(getConditionalInitialStatBonus(slots5)).toBe(20);
+
+        // 4 distinct (Rudolf and Gold Ship both stamina) -> floor(4/2)*10 = 20
+        const slots4 = buildSlots([30090, 30002, 30004, 30005, 30001]);
+        expect(getConditionalInitialStatBonus(slots4)).toBe(20);
+
+        // 3 distinct -> floor(3/2)*10 = 10
+        const slots3 = buildSlots([30090, 30002, 30005]);
+        expect(getConditionalInitialStatBonus(slots3)).toBe(10);
+    });
+
+    test('105 Rudolf: bonus is folded into calculateAllTraining initial stats', () => {
+        setupSlotsWithAssignments(buildSlots([30090, 30002, 30005, 30001, 30010]));
+        const { aggregated } = calculateAllTraining();
+
+        // Base aggregation (no 100-family leakage) + the 20-point bonus
+        const base = aggregateDeckEffects(deckBuilderState.slots);
+        [9, 10, 11, 12, 13].forEach(id => {
+            expect(aggregated[id] || 0).toBe((base[id] || 0) + 20);
+        });
+    });
+
+    // ---- Type 111: TE bonus when training level is high enough ----
+
+    test('111 Maruzensky: +8% TE at training level 5, none at level 4', () => {
+        const slots = buildSlots([30107, 30004, 30005, 30001, 30010]);
+        expect(getConditionalTrainingEff(slots, 5)).toBe(8);
+        expect(getConditionalTrainingEff(slots, 4)).toBe(0);
+    });
+
+    test('111 Maruzensky: bonus flows into per-training TE at level 5', () => {
+        setupSlotsWithAssignments(buildSlots([30107, 30004, 30005, 30001, 30010]));
+        deckBuilderState.trainingLevel = 4;
+        const effL4 = computePerTrainingEffects(deckBuilderState.slots).speed.trainingEff;
+
+        deckBuilderState.trainingLevel = 5;
+        const effL5 = computePerTrainingEffects(deckBuilderState.slots).speed.trainingEff;
+
+        expect(effL5 - effL4).toBe(8);
+    });
+
+    // ---- Type 113: energy cost reduction during friendship training ----
+
+    test('113 Light Hello: -28% energy only while friendship training is on', () => {
+        // Friend card sits in slot 5
+        const slots = buildSlots([30002, 30004, 30005, 30001, 30010, 30052]);
+        expect(getConditionalEnergyReduction(slots, true)).toBe(28);
+        expect(getConditionalEnergyReduction(slots, false)).toBe(0);
+    });
+
+    test('113 Light Hello: energy cost reduced in training gains', () => {
+        const slots = buildSlots([30002, 30004, 30005, 30001, 30010, 30052]);
+        setupSlotsWithAssignments(slots);
+        const aggregated = aggregateDeckEffects(slots);
+        // Light Hello also carries a FLAT energy-reduction effect (id 28):
+        // -10% at level 50, always active. The 113 UE adds -28% on top,
+        // only while friendship training is on.
+        expect(aggregated[28]).toBe(10);
+        const flatReduction = aggregated[28];
+
+        const resultFT = calculateTrainingGains('speed', slots, aggregated, {
+            trainingLevel: 1, mood: 'normal', friendshipTraining: true, scenario: '1',
+        });
+        const resultNoFT = calculateTrainingGains('speed', slots, aggregated, {
+            trainingLevel: 1, mood: 'normal', friendshipTraining: false, scenario: '1',
+        });
+
+        expect(resultNoFT.energyReduced).toBe(Math.floor(resultNoFT.energy * (1 - flatReduction / 100)));
+        expect(resultFT.energyReduced).toBe(Math.floor(resultFT.energy * (1 - (flatReduction + 28) / 100)));
+    });
+
+    // ---- Flat aggregation hygiene ----
+
+    test('aggregateDeckEffects: 100-family UE values do not leak into flat map', () => {
+        // Taiki Shuttle (101, value 80 = gauge threshold) at unlocked level
+        const slots = buildSlots([30053, 30002, 30004, 30005, 30001, 30010]);
+        const agg = aggregateDeckEffects(slots);
+        for (const key of Object.keys(agg)) {
+            expect(Number(key)).toBeLessThan(100);
+        }
+    });
+
+    test('aggregateDeckEffects: 100-family card at low level also leaks nothing', () => {
+        const slots = buildSlots([30085, 30002, 30004, 30005, 30001, 30010]);
+        const agg = aggregateDeckEffects(slots);
+        expect(agg[103]).toBeUndefined();
+    });
+});
+
 // ===== calculateRaceBonusGain =====
 
 describe('calculateRaceBonusGain', () => {

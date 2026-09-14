@@ -19,6 +19,56 @@
 </div>
 
 <div class="changelog">
+    <!-- Version 1.8.0 - Conditional unique effects: first batch calculated -->
+    <div class="version-entry" data-version="1.8.0">
+        <div class="version-header">
+            <h4>Version 1.8.0</h4>
+            <div class="version-date">September 13, 2026</div>
+        </div>
+
+        <div class="version-changes">
+            <div class="update-group">
+                <span class="update-type update-major">Major</span>
+                <h5>Conditional unique effects - non simulation needed effects</h5>
+                <p>42 SSRs carry <em>conditional</em> unique effects &mdash; bonuses that only kick in under certain conditions. The training simulator previously ignored all of them, so projections for those decks were a floor. Six cards now have their effect fully calculated:</p>
+                <ul>
+                    <li><strong>Agnes Digital &ldquo;A Fan's Joy&rdquo;</strong> &mdash; <strong>+15% training effectiveness</strong> when the deck has <strong>5 distinct card types</strong>.</li>
+                    <li><strong>Satono Diamond &ldquo;Special Dreamers!&rdquo;</strong> &mdash; <strong>+10% training effectiveness</strong> with <strong>4 or more</strong> distinct card types.</li>
+                    <li><strong>Symboli Rudolf &ldquo;Encha&iuml;nement&rdquo;</strong> &amp; <strong>Daitaku Helios &ldquo;Sunlit Angel &#9834;&rdquo;</strong> &mdash; <strong>+10 to every initial stat</strong> per 2 distinct card types in the deck. <em>*Provisional &mdash; the scaling formula was inferred from game data; community guides couldn't be consulted, so the exact step size is unverified.*</em></li>
+                    <li><strong>Maruzensky &ldquo;Sentimental Flare &#9834;&rdquo;</strong> &mdash; <strong>+8% training effectiveness</strong> when the facility is <strong>level 5</strong>.</li>
+                    <li><strong>Light Hello &ldquo;From the Ground Up&rdquo;</strong> &mdash; <strong>&minus;28% energy cost</strong> while friendship training is happening. <em>*Provisional &mdash; in the game the effect is gated on the friendship gauge; the builder has no gauge, so the reduction is assumed active whenever the friendship-training toggle is on.*</em></li>
+                </ul>
+                <p>Conditionals on these cards are now included in projected gains, energy costs, initial stats, and the per-training breakdown. In the deck summary, every unique effect is tagged <strong>calculated</strong> (green) or <strong>display only</strong> (amber) so you can see at a glance which bonuses the simulator accounts for.</p>
+                <p>Effect parameters were decoded from the game's master data (the unique-effect parameter tables plus the in-game English descriptions). Where the numbers match the written description they're solid; where they had to be inferred they're marked <strong>provisional</strong> above.</p>
+            </div>
+
+            <div class="update-group">
+                <span class="update-type update-bugfix">Bug Fix</span>
+                <h5>Deck Finder no longer scores conditional effects</h5>
+                <p>Conditional unique effects store their conditions as raw parameters &mdash; a gauge threshold of 80, a fan target of 10,000. Those values were leaking into the Deck Finder's effect-sum tie-breaker, silently inflating cards like Taiki Shuttle and Narita Top Road in close comparisons. They are now excluded from finder scoring and from the effect tables; conditional effects are <strong>display only</strong> in the finder for now.</p>
+            </div>
+
+            <div class="update-group">
+                <h5>What is still <em>not</em> modeled</h5>
+                <div class="help-tip">
+                    <p><strong>33 cards</strong> keep <strong>display-only</strong> conditional effects. They depend on per-run state (friendship gauge, energy, fans, failures) that a static deck projection can't evaluate &mdash; treat numbers for decks using them as a <strong>floor</strong>:</p>
+                    <ul>
+                        <li><strong>Stat bonus scaled by the friendship gauge</strong> (24 cards): Taiki Shuttle, Heirs to the Throne, Team Sirius, Nishino Flower, Mejiro Bright, Marvelous Sunday, Air Shakur, Daiwa Scarlet, Mr. C.B., Rice Shower, Agnes Tachyon, Matikanetannhauser, Zenno Rob Roy, Air Groove, Sakura Chiyono O, Manhattan Cafe, Biwa Hayahide, Daiichi Ruby, Shinko Windy, Symboli Kris S, Mejiro Ardan, Yaeno Muteki, Mihono Bourbon, Tanino Gimlet</li>
+                        <li><strong>Training eff. on non-preferred training</strong>: Sakura Bakushin O</li>
+                        <li><strong>Training eff. by fans gained</strong>: Narita Top Road</li>
+                        <li><strong>Stacking friendship bonus</strong>: Sirius Symboli, Twin Turbo</li>
+                        <li><strong>Training eff. from deck friendship</strong>: Ikuno Dictus, Tokai Teio</li>
+                        <li><strong>Training eff. by cards trained with</strong>: El Condor Pasa</li>
+                        <li><strong>Failure rate reduction</strong>: Nakayama Festa</li>
+                        <li><strong>Initial friendship gauge</strong>: Oguri Cap</li>
+                    </ul>
+                    <p><strong>3 cards</strong> need an energy model before they can be calculated (Bamboo Memory, Seeking the Pearl, Mejiro Palmer &mdash; their bonuses scale with how much energy is left). A decision on how to model energy over a full run is pending &mdash; until then their numbers are also a floor.</p>
+                    <p>Deck <em>comparisons</em> within the same scenario remain meaningful, since every deck is missing the same bonuses. The remaining effects are planned for the full scenario-simulator project.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Version 1.7.2 - Aug/Sep 2026 data refresh: 15 cards, 4 new trainees, 4 costumes -->
     <div class="version-entry" data-version="1.7.2">
         <div class="version-header">
@@ -104,12 +154,9 @@
             </div>
 
             <div class="update-group">
-                <h5>New unique effects not modeled by the simulator yet</h5>
+                <h5>Conditional unique effects &mdash; status updated in 1.8.0</h5>
                 <div class="help-tip">
-                    <ul>
-                        <li><strong>Mejiro Palmer "Moonlit Devil &#9834;"</strong> &mdash; training effectiveness that scales with how much Energy is left. Projected gains for decks relying on her will read slightly <em>lower</em> than a real run.</li>
-                        <li><strong>Oguri Cap "Run Forth! Dash On! Ever Forward!"</strong> &mdash; raises the initial friendship gauge of selected support cards, so friendship-driven effects kick in a touch earlier than the simulator shows.</li>
-                    </ul>
+                    <p>The two cards called out here &mdash; <strong>Mejiro Palmer "Moonlit Devil &#9834;"</strong> (training effectiveness scaling with energy left) and <strong>Oguri Cap "Run Forth! Dash On! Ever Forward!"</strong> (initial friendship gauge for selected cards) &mdash; were part of a larger set: 42 SSRs carry conditional unique effects the simulator didn't model. <strong>Version 1.8.0</strong> adds the full status breakdown &mdash; which effects are now calculated, which remain display-only, and how to read the new calculated / display-only tags in the deck summary.</p>
                 </div>
             </div>
         </div>

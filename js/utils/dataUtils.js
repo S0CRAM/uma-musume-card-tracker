@@ -220,6 +220,34 @@ function getEffectName(effectId) {
     return effectsData[effectId]?.name || `Effect ${effectId}`;
 }
 
+// Hand-written labels for conditional unique-effect types (100-family).
+// effects.json only covers regular effects (1-19, 25-31), so these never
+// get a name from data. Sources: master.mdb EN descriptions (text_data
+// cat 155) cross-checked 2026-09-13; see the comment block in
+// deckBuilderManager.js for parameter semantics.
+const CONDITIONAL_UE_LABELS = {
+    101: 'Conditional Stat Bonus (Friendship Gauge)',
+    102: 'Conditional Training Eff. (Non-Preferred Training)',
+    103: 'Conditional Training Eff. (Distinct Card Types)',
+    104: 'Conditional Training Eff. (Fans Gained)',
+    105: 'Conditional Initial Stats (Distinct Card Types)',
+    106: 'Stacking Friendship Bonus (Friendship Trainings)',
+    107: 'Conditional Friendship Bonus (Low Energy)',
+    108: 'Conditional Training Eff. (Max Energy)',
+    109: 'Conditional Training Eff. (Deck Friendship)',
+    110: 'Conditional Training Eff. (Cards Trained With)',
+    111: 'Conditional Training Eff. (Training Level)',
+    112: 'Failure Rate Reduction (When Training Occurs)',
+    113: 'Energy Cost Reduction (Friendship Training)',
+    114: 'Conditional Training Eff. (High Energy)',
+    115: 'Initial Friendship Gauge (Selected Cards)'
+};
+
+// Name for a conditional UE type (falls back to the raw "Effect N" form)
+function getConditionalUeLabel(type) {
+    return CONDITIONAL_UE_LABELS[type] || `Effect ${type}`;
+}
+
 // Get skill name with fallback
 function getSkillName(skillId) {
     return skillsData[skillId]?.name || `Skill ${skillId}`;
@@ -516,7 +544,9 @@ window.DataUtils = {
     getDisplayDate,
     GLOBAL_LAUNCH_DATE,
     isUniqueEffectActive,
-    getUniqueEffectBonus
+    getUniqueEffectBonus,
+    CONDITIONAL_UE_LABELS,
+    getConditionalUeLabel
 };
 
 // Also export individual functions to global scope for backward compatibility

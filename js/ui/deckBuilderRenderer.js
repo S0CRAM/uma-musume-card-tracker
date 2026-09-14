@@ -1819,8 +1819,16 @@ function renderUniqueEffectsSection(uniqueEffects) {
             : `<span class="ue-badge locked" data-tooltip="This effect unlocks at card level ${ue.unlockLevel}. Increase the card's limit break and level to activate it." tabindex="0">Locked (Lv.${ue.unlockLevel})</span>`;
 
         const effectDetails = ue.effects.map(e => {
-            const name = getEffectName(e.type);
-            return `<span class="ue-effect-detail">${name} +${e.value}</span>`;
+            // 100-family UEs have no effects.json entry: use hand-written
+            // labels and mark whether the simulator calculates them.
+            if (e.type >= 100) {
+                const name = getConditionalUeLabel(e.type);
+                const statusTag = CONDITIONAL_UE_CALCULATED[e.type]
+                    ? '<span class="ue-calc-tag calculated" data-tooltip="This effect is included in the builder\'s calculations" tabindex="0">calculated</span>'
+                    : '<span class="ue-calc-tag not-calculated" data-tooltip="This effect needs per-run state (friendship gauge, energy, fans) and is NOT included in the builder\'s numbers" tabindex="0">display only</span>';
+                return `<span class="ue-effect-detail conditional">${name} ${statusTag}</span>`;
+            }
+            return `<span class="ue-effect-detail">${getEffectName(e.type)} +${e.value}</span>`;
         }).join('');
 
         return `

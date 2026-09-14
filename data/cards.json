@@ -28757,7 +28757,8 @@
       "effects": [
         {
           "type": 113,
-          "value": 28
+          "value": 28,
+          "value_1": 30
         }
       ]
     }
@@ -28946,7 +28947,11 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 3,
+          "value_2": 1,
+          "value_3": 30,
+          "value_4": 1
         }
       ]
     }
@@ -31292,7 +31297,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 30,
+          "value_2": 2
         }
       ]
     }
@@ -33680,7 +33687,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 8,
+          "value_2": 10
         }
       ]
     }
@@ -33852,7 +33861,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 100
+          "value": 100,
+          "value_1": 7,
+          "value_2": 3
         }
       ]
     }
@@ -34033,7 +34044,8 @@
       "effects": [
         {
           "type": 102,
-          "value": 80
+          "value": 80,
+          "value_1": 20
         }
       ]
     }
@@ -34402,7 +34414,8 @@
       "effects": [
         {
           "type": 103,
-          "value": 5
+          "value": 5,
+          "value_1": 15
         }
       ]
     }
@@ -34578,7 +34591,8 @@
       "effects": [
         {
           "type": 104,
-          "value": 10000
+          "value": 10000,
+          "value_1": 20
         }
       ]
     }
@@ -34723,7 +34737,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 4,
+          "value_2": 2
         }
       ]
     }
@@ -34926,7 +34942,8 @@
       "effects": [
         {
           "type": 103,
-          "value": 4
+          "value": 4,
+          "value_1": 10
         }
       ]
     }
@@ -35102,7 +35119,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 100
+          "value": 100,
+          "value_1": 2,
+          "value_2": 60
         }
       ]
     }
@@ -35278,7 +35297,8 @@
       "effects": [
         {
           "type": 105,
-          "value": 10
+          "value": 10,
+          "value_1": 2
         }
       ]
     }
@@ -35481,7 +35501,9 @@
       "effects": [
         {
           "type": 106,
-          "value": 5
+          "value": 5,
+          "value_1": 1,
+          "value_2": 3
         }
       ]
     }
@@ -35655,7 +35677,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 3,
+          "value_2": 2
         }
       ]
     }
@@ -35815,7 +35839,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 5,
+          "value_2": 2
         }
       ]
     }
@@ -35980,7 +36006,11 @@
       "effects": [
         {
           "type": 107,
-          "value": 1
+          "value": 1,
+          "value_1": 10,
+          "value_2": 30,
+          "value_3": 15,
+          "value_4": 5
         }
       ]
     }
@@ -36173,7 +36203,11 @@
       "effects": [
         {
           "type": 108,
-          "value": 8
+          "value": 8,
+          "value_1": 100,
+          "value_2": 75,
+          "value_3": 5,
+          "value_4": 20
         }
       ]
     }
@@ -36538,7 +36572,11 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 7,
+          "value_2": 1,
+          "value_3": 30,
+          "value_4": 1
         }
       ]
     }
@@ -36891,7 +36929,8 @@
       "effects": [
         {
           "type": 109,
-          "value": 8
+          "value": 8,
+          "value_1": 30
         }
       ]
     }
@@ -37079,7 +37118,10 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 8,
+          "value_2": 10,
+          "value_4": 1
         }
       ]
     }
@@ -37256,7 +37298,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 100
+          "value": 100,
+          "value_1": 1,
+          "value_2": 20
         }
       ]
     }
@@ -37434,7 +37478,8 @@
       "effects": [
         {
           "type": 110,
-          "value": 8
+          "value": 8,
+          "value_1": 5
         }
       ]
     }
@@ -37623,7 +37668,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 100
+          "value": 100,
+          "value_1": 31,
+          "value_2": 5
         }
       ]
     }
@@ -37812,7 +37859,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 8,
+          "value_2": 10
         }
       ]
     }
@@ -38199,7 +38248,11 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 5,
+          "value_2": 1,
+          "value_3": 30,
+          "value_4": 1
         }
       ]
     }
@@ -38391,7 +38444,8 @@
       "effects": [
         {
           "type": 111,
-          "value": 8
+          "value": 8,
+          "value_1": 5
         }
       ]
     }
@@ -38765,7 +38819,10 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 8,
+          "value_2": 10,
+          "value_4": 1
         }
       ]
     }
@@ -38953,7 +39010,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 4,
+          "value_2": 2
         }
       ]
     }
@@ -39143,7 +39202,8 @@
       "effects": [
         {
           "type": 109,
-          "value": 8
+          "value": 8,
+          "value_1": 30
         }
       ]
     }
@@ -39308,7 +39368,9 @@
       "effects": [
         {
           "type": 106,
-          "value": 5
+          "value": 5,
+          "value_1": 1,
+          "value_2": 3
         }
       ]
     }
@@ -39501,7 +39563,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 8,
+          "value_2": 10
         }
       ]
     }
@@ -39653,7 +39717,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 5,
+          "value_2": 2
         }
       ]
     }
@@ -39816,7 +39882,9 @@
       "effects": [
         {
           "type": 114,
-          "value": 8
+          "value": 8,
+          "value_1": 5,
+          "value_2": 20
         }
       ]
     }
@@ -39994,7 +40062,8 @@
       "effects": [
         {
           "type": 105,
-          "value": 10
+          "value": 10,
+          "value_1": 2
         }
       ]
     }
@@ -40175,7 +40244,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 8,
+          "value_2": 10
         }
       ]
     }
@@ -40365,7 +40436,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 6,
+          "value_2": 2
         }
       ]
     }
@@ -40509,7 +40582,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 5,
+          "value_2": 2
         }
       ]
     }
@@ -40717,7 +40792,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 100
+          "value": 100,
+          "value_1": 6,
+          "value_2": 3
         }
       ]
     }
@@ -40877,7 +40954,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 8,
+          "value_2": 10
         }
       ]
     }
@@ -41036,7 +41115,9 @@
       "effects": [
         {
           "type": 101,
-          "value": 80
+          "value": 80,
+          "value_1": 5,
+          "value_2": 2
         }
       ]
     }
@@ -41244,7 +41325,8 @@
       "effects": [
         {
           "type": 115,
-          "value": 14
+          "value": 14,
+          "value_1": 5
         }
       ]
     }
