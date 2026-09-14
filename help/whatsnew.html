@@ -19,6 +19,24 @@
 </div>
 
 <div class="changelog">
+    <!-- Version 1.8.1 - Deck finder: include-card filters actually enforced -->
+    <div class="version-entry" data-version="1.8.1">
+        <div class="version-header">
+            <h4>Version 1.8.1</h4>
+            <div class="version-date">September 14, 2026</div>
+        </div>
+
+        <div class="version-changes">
+            <div class="update-group">
+                <span class="update-type update-bugfix">Bug Fix</span>
+                <h5>Deck Finder: &ldquo;included cards&rdquo; are now actually included</h5>
+                <p>When you used the Deck Finder&rsquo;s include-card filters (&ldquo;all must be in the deck&rdquo; or &ldquo;at least one&rdquo;), the results could silently ignore the filter &mdash; and would only select included cards if scored high (GitHub issue #7).</p>
+                <p>The finder builds early candidate decks to speed up the search, and those candidates were being shown as results without being checked against your include filters. Candidates that broke the rules scored higher than correct decks and pushed the valid ones out of your results.</p>
+                <p>Candidate decks are now validated against your include filters before they can appear as results, and every deck is always exactly 6 cards. If your selected cards can&rsquo;t fit the type composition you picked (for example, including an Wit card while your composition has no Wit slots), the finder tells you that directly instead of returning empty or incorrect results.</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Version 1.8.0 - Conditional unique effects: first batch calculated -->
     <div class="version-entry" data-version="1.8.0">
         <div class="version-header">
