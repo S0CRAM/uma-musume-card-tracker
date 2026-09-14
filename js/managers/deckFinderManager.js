@@ -1285,6 +1285,15 @@ function greedyWarmStart(groups, filters, cache, validDists, resultCount, traine
         return a.baseScore - b.baseScore;
     }
 
+    // Include-card constraints (must match the searchers): warm-start seeds are
+    // inserted directly into the result heap, where they set the score cutoff the
+    // DFS prunes against. Seeds that violate the include rules would prune away
+    // the only decks that satisfy them — so enforce the rules here too.
+    const wsLockedIds = (filters.includeCardsMode === 'all') ? (filters.includeCards || []) : [];
+    const wsAnyIds = (filters.includeCardsMode === 'any' && (filters.includeCards || []).length > 0) ? filters.includeCards : [];
+    const wsLockedSet = new Set(wsLockedIds);
+    const wsAnySet = new Set(wsAnyIds);
+
     // Lightweight proxy: check owned cache first, then friend cache
     // Avoids copying the entire cache into a new Map
     const evalCache = createDisplayCacheProxy(cache, friendCache);
@@ -1332,16 +1341,73 @@ function greedyWarmStart(groups, filters, cache, validDists, resultCount, traine
         const { dist, friendType } = distEntry;
         const typeEntries = Object.entries(dist).filter(([, c]) => c > 0);
 
-        // Greedy construction — deterministic offset per slot
+        // Locked cards must fit this variant's player slots. If they don't, the
+        // greedy build below would emit an overfull deck (locked cards plus
+        // freely-filled slots plus friend) that scores higher than real 6-card
+        // decks and poisons the result heap and its pruning cutoff.
+        if (wsLockedSet.size > 0) {
+            const lockedCountByType = {};
+            for (const lid of wsLockedIds) {
+                const d = cache.get(lid);
+                if (d) lockedCountByType[d.type] = (lockedCountByType[d.type] || 0) + 1;
+            }
+            let variantFits = true;
+            for (const [t, c] of Object.entries(lockedCountByType)) {
+                if ((dist[t] || 0) < c) { variantFits = false; break; }
+            }
+            if (!variantFits) continue;
+        }
+
+        // Greedy construction — deterministic offset per slot.
+        // Locked cards (all-mode includes) are pre-placed first: they occupy
+        // their slots for good, and the greedy fill covers the remaining slots.
+        // Cards pinned into this seed:
+        //  all mode → every locked card (seeds must contain all of them)
+        //  any mode → one required card, rotated per start (one search branch per
+        //            selected card; the heap key de-dupes overlapping decks)
+        const wsPinIds = wsLockedSet.size > 0
+            ? wsLockedIds
+            : (wsAnyIds.length > 0 ? [wsAnyIds[variationIdx % wsAnyIds.length]] : []);
+
         const deck = [];
+        const lockedSlotIdx = [];
         const usedIds = new Set();
         const usedCharIds = new Set();
         let slotNum = 0;
+        if (wsPinIds.length > 0) {
+            for (const lid of wsPinIds) {
+                const d = cache.get(lid);
+                if (!d) continue;
+                if (d.charId && usedCharIds.has(d.charId)) continue; // can't self-satisfy
+                deck.push(lid);
+                usedIds.add(lid);
+                if (d.charId) usedCharIds.add(d.charId);
+                lockedSlotIdx.push(deck.length - 1);
+            }
+        }
+
+        // Pinned cards already fill slots of their types
+        const remainingByType = {};
+        for (const [type, count] of typeEntries) {
+            remainingByType[type] = count;
+        }
+        for (const lid of wsPinIds) {
+            const d = cache.get(lid);
+            if (d && remainingByType[d.type] > 0) remainingByType[d.type]--;
+        }
 
         for (const [type, count] of typeEntries) {
             const allCandidates = scoredByType[type] || [];
 
             for (let s = 0; s < count; s++) {
+                // This slot is already pinned to a pre-placed locked card
+                if (remainingByType[type] <= 0) {
+                    remainingByType[type]--;
+                    slotNum++;
+                    continue;
+                }
+                remainingByType[type]--;
+
                 // Deterministic offset: cycle through top-DEPTH at each slot
                 const offset = Math.floor(variationIdx / Math.pow(DEPTH, slotNum)) % DEPTH;
                 let picked = false;
@@ -1377,7 +1443,10 @@ function greedyWarmStart(groups, filters, cache, validDists, resultCount, traine
             }
         }
 
-        if (deck.length < 6) continue;
+        // A deck is always exactly 6 cards (5 owned + 1 friend, or 6 in all mode).
+        // Any other length means pin/slot accounting double-counted - such a seed
+        // would out-score valid decks and set an unreachable pruning cutoff.
+        if (deck.length !== 6) continue;
 
         // De-duplicate before local search
         const sortedIds = deck.slice().sort();
@@ -1392,6 +1461,8 @@ function greedyWarmStart(groups, filters, cache, validDists, resultCount, traine
             let improved = false;
 
             for (let si = 0; si < playerSlots; si++) {
+                // Pinned (locked) slots are protected - the include rules require them
+                if (lockedSlotIdx.includes(si)) continue;
                 const currentId = deck[si];
                 const currentData = evalCache.get(currentId);
                 if (!currentData) continue;
@@ -1438,6 +1509,15 @@ function greedyWarmStart(groups, filters, cache, validDists, resultCount, traine
         }
 
         if (!checkHardFilters(deck, filters, evalCache)) continue;
+        // Include checks — a seed must satisfy the rules it sets the cutoff for
+        if (wsLockedSet.size > 0) {
+            let seedOk = true;
+            for (const lid of wsLockedIds) {
+                if (!deck.includes(lid)) { seedOk = false; break; }
+            }
+            if (!seedOk) continue;
+        }
+        if (wsAnySet.size > 0 && !wsAnyIds.some(id => deck.includes(id))) continue;
         const { score, metrics, aggregated } = scoreDeck(deck, filters, evalCache, traineeData, metricNorms);
         const finalSortedIds = deck.slice().sort();
         const finalKey = finalSortedIds.join(',');
@@ -1614,55 +1694,81 @@ async function runSearch(filters, onProgress, onComplete, onLiveResults) {
     const maxTable = buildMaxContributionTable(groups, cache);
     const friendMaxTable = friendGroups ? buildMaxContributionTable(friendGroups, friendCache) : null;
 
-    // For "all" mode locked cards, compute locked type counts to constrain distributions
+    // For "all" mode locked cards, compute locked type counts to constrain distributions.
+    // User-set type ratios are PRESERVED — the user's composition must stay intact;
+    // locked cards only narrow which compositions of theirs remain feasible.
     const lockedTypeCounts = {};
-    if (lockedPlayerCards.length > 0 && lockedPlayerCards.length < 6) {
+    if (lockedPlayerCards.length > 0) {
         for (const id of lockedPlayerCards) {
             const data = cache.get(id);
             if (data) lockedTypeCounts[data.type] = (lockedTypeCounts[data.type] || 0) + 1;
         }
     }
-    // Override type ratio constraints for "all" mode with locked cards
-    const distFilters = (lockedPlayerCards.length > 0)
-        ? { ...filters, typeRatio: { speed: 0, stamina: 0, power: 0, guts: 0, intelligence: 0, friend: 0, group: 0 } }
-        : filters;
+    const hasLockedCards = lockedPlayerCards.length > 0;
 
+    // Determine if friend slot is used (owned mode or restricted friend cards)
+    const hasFriendRestriction = includeFriendCards.length > 0;
+    const useFriendSlot = isOwnedMode || hasFriendRestriction;
+
+    // Do locked cards' types fit the user's composition?
+    // Player-slot counts for a friend variant are the dist minus the borrowed friend slot,
+    // so compare against the variant's owned distribution.
+    const lockedFitPlayerDist = (playerDist) => {
+        for (const [type, count] of Object.entries(lockedTypeCounts)) {
+            if ((playerDist[type] || 0) < count) return false;
+        }
+        return true;
+    };
+
+    // In include-all mode the ratio validation is skipped, so a ratio summing to
+    // fewer than 6 is legal. Treat such a ratio as at-least minimums: the user's
+    // counts are floors and the remaining slots may be any enabled type.
+    const enabledTypes = Object.keys(filters.types).filter(t => filters.types[t]);
+    const ratioSum = enabledTypes.reduce((s, t) => s + (filters.typeRatio?.[t] || 0), 0);
+    let distSourceFilters = filters;
+    const ratioAlreadyAtLeast = enabledTypes.some(t => filters.typeRatioAtLeast?.[t] && (filters.typeRatio[t] || 0) > 0);
+    if (hasLockedCards && ratioSum > 0 && ratioSum < 6 && !ratioAlreadyAtLeast) {
+        const typeRatioAtLeast = { ...filters.typeRatioAtLeast };
+        for (const t of enabledTypes) {
+            if ((filters.typeRatio[t] || 0) > 0) typeRatioAtLeast[t] = true;
+        }
+        distSourceFilters = { ...filters, typeRatioAtLeast };
+    }
+
+    let conflictTypeCounts = null;
     let distributions;
-    if (lockedPlayerCards.length >= 5) {
-        // All player slots are locked — single empty distribution
-        // If 6+: use combinations of locked cards; handled by restricting pool above
-        distributions = [{ speed: 0, stamina: 0, power: 0, guts: 0, intelligence: 0, friend: 0, group: 0 }];
-        // Set actual types from locked cards
-        if (lockedPlayerCards.length === 5) {
-            const dist = { speed: 0, stamina: 0, power: 0, guts: 0, intelligence: 0, friend: 0, group: 0 };
-            for (const id of lockedPlayerCards) {
-                const data = cache.get(id);
-                if (data) dist[data.type] = (dist[data.type] || 0) + 1;
-            }
-            distributions = [dist];
+    if (hasLockedCards && lockedPlayerCards.length < 6) {
+        const baseDists = enumerateTypeDistributions(distSourceFilters);
+        if (baseDists.length === 0) {
+            conflictTypeCounts = lockedTypeCounts;
+        } else {
+            distributions = baseDists.filter(dist => {
+                if (!useFriendSlot) return lockedFitPlayerDist(dist);
+                // Owned mode: locked cards fill PLAYER slots only. A variant borrows one
+                // slot of friendType for the friend, so locked cards must fit the rest.
+                const friendTypes = hasFriendRestriction
+                    ? Object.keys(friendGroups || {})
+                    : Object.keys(dist).filter(t => (dist[t] || 0) > 0);
+                return friendTypes.some(ft => {
+                    if ((dist[ft] || 0) <= 0) return false;
+                    return lockedFitPlayerDist({ ...dist, [ft]: dist[ft] - 1 });
+                });
+            });
+            if (distributions.length === 0) conflictTypeCounts = lockedTypeCounts;
         }
     } else {
-        distributions = enumerateTypeDistributions(distFilters);
+        distributions = enumerateTypeDistributions(filters);
     }
 
     if (distributions.length === 0) {
         deckFinderState.searching = false;
-        onComplete([], 'No valid type distributions possible.');
-        return;
-    }
-
-    // For "all" mode locked cards, filter distributions that are compatible with locked types
-    if (lockedPlayerCards.length > 0 && lockedPlayerCards.length < 5) {
-        const filtered = distributions.filter(dist => {
-            for (const [type, count] of Object.entries(lockedTypeCounts)) {
-                if ((dist[type] || 0) < count) return false;
-            }
-            return true;
-        });
-        if (filtered.length > 0) {
-            distributions.length = 0;
-            distributions.push(...filtered);
+        if (conflictTypeCounts) {
+            const parts = Object.entries(conflictTypeCounts).map(([t, c]) => `${c} ${t}`).join(', ');
+            onComplete([], `No valid type distributions possible — your included cards (${parts}) don't fit your type composition.`);
+        } else {
+            onComplete([], 'No valid type distributions possible.');
         }
+        return;
     }
 
     // Phase 1c: Filter infeasible distributions
@@ -1670,10 +1776,6 @@ async function runSearch(filters, onProgress, onComplete, onLiveResults) {
     // multiple variants where one slot of a specific type is filled by a friend card
     const validDists = [];
     let totalCombos = 0;
-
-    // Determine if friend slot is used (owned mode or restricted friend cards)
-    const hasFriendRestriction = includeFriendCards.length > 0;
-    const useFriendSlot = isOwnedMode || hasFriendRestriction;
 
     if (useFriendSlot && friendGroups) {
         for (const dist of distributions) {
@@ -1686,6 +1788,10 @@ async function runSearch(filters, onProgress, onComplete, onLiveResults) {
                 if ((dist[friendType] || 0) <= 0) continue;
                 // Owned distribution: one fewer of friendType
                 const ownedDist = { ...dist, [friendType]: dist[friendType] - 1 };
+                // Locked cards fill PLAYER slots only — skip any variant whose
+                // owned distribution can't host them (the dist-level filter above
+                // only guarantees SOME variant fits, not all of them).
+                if (hasLockedCards && !lockedFitPlayerDist(ownedDist)) continue;
                 // Check feasibility using combined max tables
                 if (!isDistributionFeasibleWithFriend(ownedDist, friendType, filters, maxTable, friendMaxTable)) continue;
                 const ownedCount = estimateComboCount(groups, ownedDist);
@@ -1976,98 +2082,150 @@ async function bruteForceSearch(groups, filters, cache, validDists, totalCombos,
 
         if (typeEntries.some(([type, count]) => (groups[type]?.length || 0) < count)) continue;
 
-        // Build a flat slot plan: [{pool: [...cardIds], type, isLastOfType, isFriend}]
-        // Each slot picks one card. Slots for the same type must pick in ascending index order.
-        // The friend slot (if any) is appended last so owned cards are picked first.
-        const slots = [];
-        const typeOrder = [];
-        for (const [type, count] of typeEntries) {
-            const pool = (groups[type] || []).map(c => c.support_id);
-            typeOrder.push({ type, count });
-            for (let s = 0; s < count; s++) {
-                slots.push({
-                    pool,
-                    type,
-                    isLastOfType: s === count - 1,
-                    slotInType: s,
-                    isFriend: false
-                });
+        // Locked cards (all-mode includes) pre-placed into matching type slots,
+        // mirroring the worker. Each free slot picks one card; slots for the same
+        // type pick in ascending index order. Locked/pinned slots hold a single card.
+        const lockedSet = new Set(lockedPlayerCards);
+        const lockedByType = {};
+        if (lockedPlayerCards.length > 0) {
+            for (const lid of lockedPlayerCards) {
+                const d = cache.get(lid);
+                if (d) {
+                    if (!lockedByType[d.type]) lockedByType[d.type] = [];
+                    lockedByType[d.type].push(lid);
+                }
             }
         }
-
-        // Append friend slot last (if owned mode)
-        if (friendType && friendGroups) {
-            const fPool = (friendGroups[friendType] || []).map(c => c.support_id);
-            if (fPool.length === 0) continue;
-            typeOrder.push({ type: friendType, count: 1 });
-            slots.push({
-                pool: fPool,
-                type: friendType,
-                isLastOfType: true,
-                slotInType: 0,
-                isFriend: true
-            });
-        }
-        const totalSlots = slots.length; // should be 6
-
-        // Build per-slot effect bounds: for slot i, what's the max remaining effect
-        // from all cards in slots i+1..end. We need bounds per effect.
-        // Since cards within a type are pre-sorted, the max remaining for a type
-        // starting at slot rank j is sum of top-(count-j) values.
-        const slotEffectBounds = buildSlotEffectBounds(slots, typeOrder, maxTable);
-        const slotScoreBounds = buildSlotScoreBounds(slotEffectBounds, combinedWeights, norms);
-
-        // Build required-skill reachability: for each required skill,
-        // a bitmask of which slot indices have pools containing that skill.
-        // Used to prune early when remaining slots can't provide missing skills.
         const reqSkills = filters.requiredSkills;
-        const reqSkillSlotMasks = []; // reqSkillSlotMasks[i] = bitmask of slots that CAN provide reqSkills[i]
         const hasReqSkills = reqSkills.length > 0;
-        if (hasReqSkills) {
-            for (const skillId of reqSkills) {
-                let mask = 0;
-                for (let s = 0; s < totalSlots; s++) {
-                    const pool = slots[s].pool;
-                    for (const cardId of pool) {
-                        const data = cache.get(cardId);
-                        if (data && data.hintSkillIds.has(skillId)) {
-                            mask |= (1 << s);
-                            break; // at least one card in this slot's pool has the skill
-                        }
+
+        // Slot plan builder. pinReqId ("any" mode) pins one free slot to the given
+        // required card, so each selected card gets its own search branch.
+        function buildSlotPlan(pinReqId) {
+            const slots = [];
+            const typeOrder = [];
+            const pinSet = pinReqId !== null ? new Set([pinReqId]) : null;
+            const pinByType = {};
+            if (pinReqId !== null) {
+                const d = cache.get(pinReqId);
+                if (!d) return null; // card not in pool — branch is empty
+                if (!typeEntries.some(([t]) => t === d.type)) return null; // comp has no slot of its type
+                pinByType[d.type] = [pinReqId];
+            }
+            for (const [type, count] of typeEntries) {
+                const rawPool = (groups[type] || []).map(c => c.support_id);
+                const typeLocked = lockedByType[type] || [];
+                const typePinned = pinByType[type] || [];
+                // Exclude locked/pinned cards from free pool to prevent duplicates
+                const freePool = (typeLocked.length > 0 || typePinned.length > 0)
+                    ? rawPool.filter(id => !lockedSet.has(id) && !(pinSet && pinSet.has(id)))
+                    : rawPool;
+                let placed = 0;
+                for (let s = 0; s < count; s++) {
+                    if (placed < typeLocked.length) {
+                        // This slot is pinned to a single locked card
+                        slots.push({ pool: [typeLocked[placed]], type, isLastOfType: s === count - 1, slotInType: s, isFriend: false, isLocked: true });
+                        placed++;
+                    } else if (placed - typeLocked.length < typePinned.length) {
+                        // This slot is pinned to a required card ("any" branch)
+                        slots.push({ pool: [typePinned[placed - typeLocked.length]], type, isLastOfType: s === count - 1, slotInType: s, isFriend: false, isLocked: true });
+                        placed++;
+                    } else {
+                        slots.push({ pool: freePool, type, isLastOfType: s === count - 1, slotInType: s, isFriend: false });
                     }
                 }
-                reqSkillSlotMasks.push(mask);
+                typeOrder.push({ type, count });
             }
+
+            // Append friend slot last (if owned mode)
+            if (friendType && friendGroups) {
+                const fPool = (friendGroups[friendType] || []).map(c => c.support_id);
+                if (fPool.length === 0) return null;
+                typeOrder.push({ type: friendType, count: 1 });
+                slots.push({
+                    pool: fPool,
+                    type: friendType,
+                    isLastOfType: true,
+                    slotInType: 0,
+                    isFriend: true
+                });
+            }
+            if (slots.length === 0) return null;
+            const totalSlots = slots.length; // should be 6
+
+            // Build per-slot effect bounds: for slot i, what's the max remaining effect
+            // from all cards in slots i+1..end. Since cards within a type are
+            // pre-sorted, the max remaining for a type starting at slot rank j is
+            // sum of top-(count-j) values.
+            const slotEffectBounds = buildSlotEffectBounds(slots, typeOrder, maxTable);
+            const slotScoreBounds = buildSlotScoreBounds(slotEffectBounds, combinedWeights, norms);
+
+            // Build required-skill reachability: for each required skill,
+            // a bitmask of which slot indices have pools containing that skill.
+            const reqSkillSlotMasks = [];
+            if (hasReqSkills) {
+                for (const skillId of reqSkills) {
+                    let mask = 0;
+                    for (let s = 0; s < totalSlots; s++) {
+                        const pool = slots[s].pool;
+                        for (const cardId of pool) {
+                            const data = (slots[s].isFriend && friendCache) ? friendCache.get(cardId) : cache.get(cardId);
+                            if (data && data.hintSkillIds.has(skillId)) {
+                                mask |= (1 << s);
+                                break; // at least one card in this slot's pool has the skill
+                            }
+                        }
+                    }
+                    reqSkillSlotMasks.push(mask);
+                }
+            }
+
+            return { slots, totalSlots, slotEffectBounds, slotScoreBounds, reqSkillSlotMasks };
         }
+
+        let slots, totalSlots, slotEffectBounds, slotScoreBounds, reqSkillSlotMasks, minIndices;
         let foundSkillBits = 0; // bitmask: bit i set = reqSkills[i] already found in partial deck
 
-        // Reset mutable state
-        deckIds.length = 0;
-        for (const k of Object.keys(partialEffects)) delete partialEffects[k];
-        usedCharIds.clear();
-        skillMask = 0;
-        ueCount = 0;
-        partialScore = 0;
-        partialEffectSum = 0;
-        for (const k of Object.keys(deckTypeCounts)) delete deckTypeCounts[k];
-        maxTypeCount = 0;
-        foundSkillBits = 0;
-        // Reset running skill-type unique counts
-        if (hasReqSkillTypes) {
-            for (const r of reqSkillTypes) {
-                const refs = skillTypeRefCounts[r.type];
-                for (const k of Object.keys(refs)) delete refs[k];
-                skillTypeUniqueCounts[r.type] = 0;
-            }
-        }
-
-        // Card-by-card DFS — slot 0 picks from its pool starting at index 0.
-        // slot 1 of the same type picks at a higher index than slot 0.
-        // Slot 0 of a different type picks at index 0.
-        const minIndices = new Array(totalSlots).fill(0);
+        // "any" mode: one pinned branch per required card (the heap key de-dupes
+        // decks containing several). "all"/no include: a single branch.
+        const anyBranches = anyRequiredCards.length > 0 ? anyRequiredCards : [null];
         let distEvaluated = 0;
 
-        await dfsSlot(0);
+        for (const branchReq of anyBranches) {
+            if (deckFinderState.cancelled) throw new Error('cancelled');
+            if (distEvaluated >= PER_DIST_EVAL_CAP) break;
+
+            const plan = buildSlotPlan(branchReq);
+            if (!plan) continue;
+            ({ slots, totalSlots, slotEffectBounds, slotScoreBounds, reqSkillSlotMasks } = plan);
+
+            // Reset mutable state
+            deckIds.length = 0;
+            for (const k of Object.keys(partialEffects)) delete partialEffects[k];
+            usedCharIds.clear();
+            skillMask = 0;
+            ueCount = 0;
+            partialScore = 0;
+            partialEffectSum = 0;
+            for (const k of Object.keys(deckTypeCounts)) delete deckTypeCounts[k];
+            maxTypeCount = 0;
+            foundSkillBits = 0;
+            // Reset running skill-type unique counts
+            if (hasReqSkillTypes) {
+                for (const r of reqSkillTypes) {
+                    const refs = skillTypeRefCounts[r.type];
+                    for (const k of Object.keys(refs)) delete refs[k];
+                    skillTypeUniqueCounts[r.type] = 0;
+                }
+            }
+
+            // Card-by-card DFS — slot 0 picks from its pool starting at index 0.
+            // slot 1 of the same type picks at a higher index than slot 0.
+            // Slot 0 of a different type picks at index 0.
+            minIndices = new Array(totalSlots).fill(0);
+
+            await dfsSlot(0);
+        }
 
         // Track early termination stability (use base score as proxy)
         const worstEntry = topN.minEntry();
@@ -2257,7 +2415,9 @@ async function bruteForceSearch(groups, filters, cache, validDists, totalCombos,
             const slotPool = slot.pool;
             const slotCache = slot.isFriend ? friendCache : cache;
             const slotScoreMap = slot.isFriend ? friendCardScoreContrib : cardScoreContrib;
-            const startFrom = slot.slotInType === 0 ? 0 : minIndices[slotIdx];
+            // Pinned (locked/pinned-branch) slots hold exactly one card at index 0 —
+            // the ascending-index range only applies between FREE slots of a type.
+            const startFrom = slot.isLocked ? 0 : (slot.slotInType === 0 ? 0 : minIndices[slotIdx]);
             const slotsRemaining = totalSlots - slotIdx;
             const eb = slotEffectBounds[slotIdx + 1]; // bounds for slots after this one
 
@@ -2388,8 +2548,10 @@ async function bruteForceSearch(groups, filters, cache, validDists, totalCombos,
                         if (deckFinderState.cancelled) throw new Error('cancelled');
                     }
                 } else {
-                    // Set min index for next slot of same type
-                    if (slotIdx + 1 < totalSlots && slots[slotIdx + 1].type === slot.type) {
+                    // Set min index for next slot of same type (free slots only —
+                    // locked slots have single-card pools and must not shift the range)
+                    if (slotIdx + 1 < totalSlots && slots[slotIdx + 1].type === slot.type
+                        && !slot.isLocked && !slots[slotIdx + 1].isLocked) {
                         minIndices[slotIdx + 1] = i + 1;
                     }
                     await dfsSlot(slotIdx + 1);

@@ -210,14 +210,31 @@ function runBranchAndBound(payload) {
 
     const topN = new MinHeap(resultCount);
 
-    // Seed heap with initial results from greedy warm-start
+    // Seed heap with initial results from greedy warm-start.
+    // Seeds set the score cutoff that PRUNE 2 uses — a seed that violates the
+    // include rules would prune away the only decks that satisfy them, so only
+    // rule-conforming seeds may enter the heap.
     if (initialSeeds && initialSeeds.length > 0) {
         for (const seed of initialSeeds) {
             if (!seed._key) seed._key = seed.cardIds.slice().sort().join(',');
             if (seed.baseScore === undefined) seed.baseScore = seed.score || 0;
+            if (hasLockedCards) {
+                let ok = true;
+                for (const lid of lockedSet) {
+                    if (!seed.cardIds.includes(lid)) { ok = false; break; }
+                }
+                if (!ok) continue;
+            }
+            if (hasAnyRequired) {
+                let found = false;
+                for (const rid of anyRequiredSet) {
+                    if (seed.cardIds.includes(rid)) { found = true; break; }
+                }
+                if (!found) continue;
+            }
             topN.insert(seed);
         }
-        log.debug('Seeded heap with ' + initialSeeds.length + ' warm-start results');
+        log.debug('Seeded heap with warm-start results (filtered by include rules)');
     }
 
     let evaluated = 0;
@@ -379,8 +396,7 @@ function runBranchAndBound(payload) {
 
         if (typeEntries.some(([type, count]) => (groups[type]?.length || 0) < count)) continue;
 
-        // Build flat slot plan, pre-placing locked cards into matching type slots
-        const slots = [];
+        // Locked cards pre-placed into matching type slots
         const lockedByType = {};
         if (hasLockedCards) {
             for (const lid of lockedSet) {
@@ -391,80 +407,120 @@ function runBranchAndBound(payload) {
                 }
             }
         }
-        for (const [type, count] of typeEntries) {
-            const rawPool = (groups[type] || []).map(c => c.support_id);
-            const typeLocked = lockedByType[type] || [];
-            // Exclude locked cards from free pool to prevent duplicates
-            const freePool = typeLocked.length > 0
-                ? rawPool.filter(id => !lockedSet.has(id))
-                : rawPool;
-            let lockedPlaced = 0;
-            for (let s = 0; s < count; s++) {
-                if (lockedPlaced < typeLocked.length) {
-                    // This slot is pinned to a single locked card
-                    slots.push({ pool: [typeLocked[lockedPlaced]], type, slotInType: s, isFriend: false, isLocked: true });
-                    lockedPlaced++;
-                } else {
-                    slots.push({ pool: freePool, type, slotInType: s, isFriend: false });
-                }
-            }
-        }
-
-        // Append friend slot last (if present)
-        if (friendType && friendGroups) {
-            const fPool = (friendGroups[friendType] || []).map(c => c.support_id);
-            if (fPool.length === 0) continue;
-            slots.push({ pool: fPool, type: friendType, slotInType: 0, isFriend: true });
-        }
-        const totalSlots = slots.length;
-        const slotEffectBounds = buildSlotEffectBounds(slots, maxTable);
-        const slotScoreBounds = buildSlotScoreBounds(slotEffectBounds, combinedWeights, metricNorms);
-        const minIndices = new Array(totalSlots).fill(0);
-
-        // Required-skill reachability pruning
         const reqSkills = filters.requiredSkills;
         const hasReqSkills = reqSkills.length > 0;
-        const reqSkillSlotMasks = [];
-        if (hasReqSkills) {
-            for (const skillId of reqSkills) {
-                let mask = 0;
-                for (let s = 0; s < totalSlots; s++) {
-                    const pool = slots[s].pool;
-                    for (const cardId of pool) {
-                        const data = cache[cardId];
-                        if (data && data.hintSkillIds && data.hintSkillIds.includes(skillId)) {
-                            mask |= (1 << s);
-                            break;
-                        }
+
+        // Build flat slot plan. pinReqId ("any" mode) pins one free slot to the
+        // given required card, so each selected card gets its own search branch.
+        function buildSlotPlan(pinReqId) {
+            const slots = [];
+            const pinSet = pinReqId !== null ? new Set([pinReqId]) : null;
+            const pinByType = {};
+            if (pinReqId !== null) {
+                const d = cache[pinReqId];
+                if (!d) return null; // card not in shard cache — branch is empty
+                if (!typeEntries.some(([t]) => t === d.type)) return null; // comp has no slot of its type
+                pinByType[d.type] = [pinReqId];
+            }
+            for (const [type, count] of typeEntries) {
+                const rawPool = (groups[type] || []).map(c => c.support_id);
+                const typeLocked = lockedByType[type] || [];
+                const typePinned = pinByType[type] || [];
+                // Exclude locked/pinned cards from free pool to prevent duplicates
+                const freePool = (typeLocked.length > 0 || typePinned.length > 0)
+                    ? rawPool.filter(id => !lockedSet.has(id) && !(pinSet && pinSet.has(id)))
+                    : rawPool;
+                let placed = 0;
+                for (let s = 0; s < count; s++) {
+                    if (placed < typeLocked.length) {
+                        // This slot is pinned to a single locked card
+                        slots.push({ pool: [typeLocked[placed]], type, slotInType: s, isFriend: false, isLocked: true });
+                        placed++;
+                    } else if (placed - typeLocked.length < typePinned.length) {
+                        // This slot is pinned to a required card ("any" branch)
+                        slots.push({ pool: [typePinned[placed - typeLocked.length]], type, slotInType: s, isFriend: false, isLocked: true });
+                        placed++;
+                    } else {
+                        slots.push({ pool: freePool, type, slotInType: s, isFriend: false });
                     }
                 }
-                reqSkillSlotMasks.push(mask);
             }
+
+            // Append friend slot last (if present)
+            if (friendType && friendGroups) {
+                const fPool = (friendGroups[friendType] || []).map(c => c.support_id);
+                if (fPool.length === 0) return null;
+                slots.push({ pool: fPool, type: friendType, slotInType: 0, isFriend: true });
+            }
+            if (slots.length === 0) return null;
+            const totalSlots = slots.length;
+            const slotEffectBounds = buildSlotEffectBounds(slots, maxTable);
+            const slotScoreBounds = buildSlotScoreBounds(slotEffectBounds, combinedWeights, metricNorms);
+
+            // Required-skill reachability pruning
+            const reqSkillSlotMasks = [];
+            if (hasReqSkills) {
+                for (const skillId of reqSkills) {
+                    let mask = 0;
+                    for (let s = 0; s < totalSlots; s++) {
+                        const pool = slots[s].pool;
+                        for (const cardId of pool) {
+                            const data = (slots[s].isFriend && friendCache) ? friendCache[cardId] : cache[cardId];
+                            if (data && data.hintSkillIds && data.hintSkillIds.includes(skillId)) {
+                                mask |= (1 << s);
+                                break;
+                            }
+                        }
+                    }
+                    reqSkillSlotMasks.push(mask);
+                }
+            }
+
+            return { slots, totalSlots, slotEffectBounds, slotScoreBounds, reqSkillSlotMasks };
         }
+
+        let slots, totalSlots, slotEffectBounds, slotScoreBounds, reqSkillSlotMasks, minIndices;
         let foundSkillBits = 0;
 
-        // Reset mutable state
-        deckIds.length = 0;
-        for (const k of Object.keys(partialEffects)) delete partialEffects[k];
-        usedCharIds.clear();
-        skillMask = 0;
-        ueCount = 0;
-        partialScore = 0;
-        partialEffectSum = 0;
-        for (const k of Object.keys(deckTypeCounts)) delete deckTypeCounts[k];
-        maxTypeCount = 0;
-        foundSkillBits = 0;
-        // Reset running skill-type unique counts
-        if (hasReqSkillTypes) {
-            for (const r of reqSkillTypes) {
-                const refs = skillTypeRefCounts[r.type];
-                for (const k of Object.keys(refs)) delete refs[k];
-                skillTypeUniqueCounts[r.type] = 0;
-            }
-        }
-
+        // "any" mode: one pinned branch per required card (the heap key de-dupes
+        // decks containing several). "all"/no include: a single branch.
+        const anyBranches = hasAnyRequired ? Array.from(anyRequiredSet) : [null];
         let distEvaluated = 0;
-        dfsSlot(0);
+        let branchRan = false;
+
+        for (const branchReq of anyBranches) {
+            if (cancelled) return;
+            if (distEvaluated >= PER_DIST_EVAL_CAP) break;
+
+            const plan = buildSlotPlan(branchReq);
+            if (!plan) continue;
+            branchRan = true;
+            ({ slots, totalSlots, slotEffectBounds, slotScoreBounds, reqSkillSlotMasks } = plan);
+            minIndices = new Array(totalSlots).fill(0);
+
+            // Reset mutable state
+            deckIds.length = 0;
+            for (const k of Object.keys(partialEffects)) delete partialEffects[k];
+            usedCharIds.clear();
+            skillMask = 0;
+            ueCount = 0;
+            partialScore = 0;
+            partialEffectSum = 0;
+            for (const k of Object.keys(deckTypeCounts)) delete deckTypeCounts[k];
+            maxTypeCount = 0;
+            foundSkillBits = 0;
+            // Reset running skill-type unique counts
+            if (hasReqSkillTypes) {
+                for (const r of reqSkillTypes) {
+                    const refs = skillTypeRefCounts[r.type];
+                    for (const k of Object.keys(refs)) delete refs[k];
+                    skillTypeUniqueCounts[r.type] = 0;
+                }
+            }
+
+            dfsSlot(0);
+        }
+        if (!branchRan) continue;
         distsCompleted++;
         combosCompleted += (distComboCount || distEvaluated || 1);
 
@@ -643,7 +699,9 @@ function runBranchAndBound(payload) {
             const slotPool = slot.pool;
             const slotCache = slot.isFriend && friendCache ? friendCache : cache;
             const slotScoreMap = slot.isFriend && friendCache ? friendCardScoreContrib : cardScoreContrib;
-            const startFrom = slot.slotInType === 0 ? 0 : minIndices[slotIdx];
+            // Pinned (locked) slots hold exactly one card at index 0 — the
+            // ascending-index range only applies between FREE slots of a type.
+            const startFrom = slot.isLocked ? 0 : (slot.slotInType === 0 ? 0 : minIndices[slotIdx]);
             const eb = slotEffectBounds[slotIdx + 1];
 
             for (let i = startFrom; i < slotPool.length; i++) {
